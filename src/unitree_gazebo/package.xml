@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<package format="3">
+    <name>unitree_gazebo</name>
+    <version>0.0.0</version>
+    <description>Unitree Go1 Gazebo simulation package</description>
+
+    <maintainer email="laikago@unitree.cc">Unitree</maintainer>
+    <license>TODO</license>
+
+    <!-- Build system -->
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
+    <!-- ROS 2 dependencies -->
+    <depend>rclcpp</depend>
+    <depend>std_msgs</depend>
+    <depend>robot_state_publisher</depend>
+
+    <!-- ROS 2 control -->
+    <depend>controller_manager</depend>
+    <depend>joint_state_broadcaster</depend>
+    <depend>joint_trajectory_controller</depend>
+
+    <!-- Gazebo Harmonic integration -->
+    <depend>ros_gz_sim</depend>
+    <depend>ros_gz_bridge</depend>
+
+    <!-- Robot description -->
+    <exec_depend>go1_description</exec_depend>
+
+    <!-- Unitree messages -->
+    <depend>unitree_legged_msgs</depend>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
+</package>

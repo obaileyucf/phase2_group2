@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- Replaces the ROS1 <transmission> blocks (transmission.xacro).
+         Effort command interface, position/velocity/effort state.
+
+         initial_value = joint position at spawn. It must be inside the joint
+         limits: the calf limit is [-2.818, -0.888] rad, so the default of 0
+         starts every calf 0.89 rad outside its limit and throws the robot.
+         Standing pose below: hip 0.0, thigh 0.8, calf -1.5. -->
+    <xacro:macro name="go1_joint" params="joint init">
+        <joint name="${joint}">
+            <command_interface name="effort"/>
+            <state_interface name="position">
+                <param name="initial_value">${init}</param>
+            </state_interface>
+            <state_interface name="velocity"/>
+            <state_interface name="effort"/>
+        </joint>
+    </xacro:macro>
+
+    <xacro:macro name="go1_ros2_control">
+        <ros2_control name="GazeboSimSystem" type="system">
+            <hardware>
+                <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+            </hardware>
+
+            <xacro:go1_joint joint="FL_hip_joint"   init="0.0"/>
+            <xacro:go1_joint joint="FL_thigh_joint" init="0.8"/>
+            <xacro:go1_joint joint="FL_calf_joint"  init="-1.5"/>
+
+            <xacro:go1_joint joint="FR_hip_joint"   init="0.0"/>
+            <xacro:go1_joint joint="FR_thigh_joint" init="0.8"/>
+            <xacro:go1_joint joint="FR_calf_joint"  init="-1.5"/>
+
+            <xacro:go1_joint joint="RL_hip_joint"   init="0.0"/>
+            <xacro:go1_joint joint="RL_thigh_joint" init="0.8"/>
+            <xacro:go1_joint joint="RL_calf_joint"  init="-1.5"/>
+
+            <xacro:go1_joint joint="RR_hip_joint"   init="0.0"/>
+            <xacro:go1_joint joint="RR_thigh_joint" init="0.8"/>
+            <xacro:go1_joint joint="RR_calf_joint"  init="-1.5"/>
+        </ros2_control>
+    </xacro:macro>
+
+</robot>

@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <!-- ros2_control plugin for Gazebo Harmonic (Jazzy).
+         Replaces libgazebo_ros_control.so. It starts the controller manager
+         and reads the controller YAML. The joints it drives are declared in
+         ros2_control.xacro. -->
+    <gazebo>
+        <plugin filename="gz_ros2_control-system"
+                name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+            <parameters>$(find go1_description)/config/robot_control.yaml</parameters>
+        </plugin>
+    </gazebo>
+
+    <!-- Removed Gazebo Classic plugins (they do not exist in Gazebo Harmonic):
+           libLinkPlot3DPlugin.so         3D trajectory plot
+           libgazebo_ros_force.so         external force on the trunk
+           libgazebo_ros_imu_sensor.so    IMU
+           libgazebo_ros_openni_kinect.so depth cameras (in depthCamera.xacro)
+           libunitreeFootContactPlugin.so foot contact sensors (replaced below)
+           libunitreeDrawForcePlugin.so   foot force visuals (use RViz Wrench)
+         Also removed: Gazebo/... material names, kp/kd, turnGravityOff and the
+         sensors/blocks for links that do not exist (stick_link,
+         depthCamera_link_left). -->
+
+    <!-- Friction (mu1/mu2 are converted to SDF friction by the URDF parser) -->
+    <xacro:macro name="leg_friction" params="name">
+        <gazebo reference="${name}_hip">
+            <mu1>0.2</mu1>
+            <mu2>0.2</mu2>
+        </gazebo>
+        <gazebo reference="${name}_thigh">
+            <mu1>0.2</mu1>
+            <mu2>0.2</mu2>
+        </gazebo>
+        <gazebo reference="${name}_calf">
+            <mu1>0.2</mu1>
+            <mu2>0.2</mu2>
+        </gazebo>
+        <gazebo reference="${name}_foot">
+            <mu1>0.6</mu1>
+            <mu2>0.6</mu2>
+        </gazebo>
+    </xacro:macro>
+
+    <gazebo reference="trunk">
+        <mu1>0.2</mu1>
+        <mu2>0.2</mu2>
+    </gazebo>
+
+    <xacro:leg_friction name="FL"/>
+    <xacro:leg_friction name="FR"/>
+    <xacro:leg_friction name="RL"/>
+    <xacro:leg_friction name="RR"/>
+
+    <!-- Foot sensing (replaces libunitreeFootContactPlugin.so and, together with
+         RViz's Wrench display, libunitreeDrawForcePlugin.so).
+         - preserveFixedJoint keeps the foot as its own link. Otherwise Gazebo
+           merges it into the calf and the sensors have nothing to attach to.
+         - contact sensor -> gz.msgs.Contacts on /<leg>_foot_contact
+           (the foot is touching when the contact list is not empty)
+         - force/torque sensor on the calf-foot joint -> gz.msgs.Wrench on
+           /<leg>_foot_force
+         They need gz-sim-contact-system and gz-sim-forcetorque-system in the
+         world (see unitree_gazebo/worlds/empty.sdf). The collision name is the
+         URDF default <link>_collision; check with `gz sdf -p`. -->
+    <xacro:macro name="foot_sensors" params="name">
+        <gazebo reference="${name}_foot_fixed">
+            <preserveFixedJoint>true</preserveFixedJoint>
+            <sensor name="${name}_foot_force" type="force_torque">
+                <always_on>true</always_on>
+                <update_rate>100</update_rate>
+                <topic>/${name}_foot_force</topic>
+                <gz_frame_id>${name}_foot</gz_frame_id>
+                <force_torque>
+                    <frame>child</frame>
+                    <measure_direction>child_to_parent</measure_direction>
+                </force_torque>
+            </sensor>
+        </gazebo>
+        <gazebo reference="${name}_foot">
+            <sensor name="${name}_foot_contact" type="contact">
+                <always_on>true</always_on>
+                <update_rate>100</update_rate>
+                <topic>/${name}_foot_contact</topic>
+                <contact>
+                    <collision>${name}_foot_collision</collision>
+                </contact>
+            </sensor>
+        </gazebo>
+    </xacro:macro>
+
+    <xacro:foot_sensors name="FL"/>
+    <xacro:foot_sensors name="FR"/>
+    <xacro:foot_sensors name="RL"/>
+    <xacro:foot_sensors name="RR"/>
+
+</robot>
