@@ -88,4 +88,4 @@ source install/setup.bash
 ros2 run go1_gazebo junior_ctrl --ros-args -p gait:=walk
 ```
 
-Press **2** to stand, then **4** after the robot settles. Use **W** and **S** to move and **Space** to center the velocity command.
+Press **2** to stand, then **4** after the robot settles. Use **W** and **S** to move and **Space** to center the velocity command. Use ```gait:=trot``` for trotting.
