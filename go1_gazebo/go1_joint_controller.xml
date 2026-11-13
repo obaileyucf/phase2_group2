@@ -1,0 +1,6 @@
+<library path="go1_joint_controller">
+  <class name="unitree_guide/Go1JointController" type="unitree_guide::Go1JointController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Unitree Go1 simulated joint servo with PD and feedforward torque.</description>
+  </class>
+</library>
