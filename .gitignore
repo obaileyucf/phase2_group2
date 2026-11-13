@@ -2,3 +2,9 @@
 /install/
 /log/
 __pycache__/
+
+# Windows download metadata
+*:Zone.Identifier
+*.Zone.Identifier
+*.zoneidentifier
+Zone.Identifier
