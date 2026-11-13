@@ -2,13 +2,13 @@
 
 This project is a **ROS 2 port and adaptation of [Unitree Robotics' Unitree Guide](https://github.com/unitreerobotics/unitree_guide)** for simulating the **Unitree Go1** on **Ubuntu 24.04, ROS 2 Jazzy, and Gazebo Harmonic**.
 
-The original Unitree Guide supplies the underlying locomotion architecture, including its finite-state machine, gait generation, state estimation, kinematics, and balance/force control. This port preserves that foundation while replacing ROS 1/Gazebo Classic integration with ROS 2 communication and Gazebo Harmonic simulation interfaces. The **walk and trot profiles** are selectable without maintaining two separate controllers.
+The original Unitree Guide supplies the underlying locomotion architecture, including its finite-state machine, gait generation, state estimation, kinematics, and balance/force control. This port preserves that foundation while replacing ROS 1/Gazebo Classic integration with ROS 2 communication and Gazebo Harmonic simulation interfaces.
 
 This is an independently adapted simulation project, **not an official Unitree ROS 2 release** or a validated controller for a physical Go1. Credit for the original framework belongs to Unitree Robotics. The included Unitree code retains its **BSD-3-Clause** license; third-party components retain their own notices (including QuadProg++'s MIT notice). See [`LICENSE`](LICENSE) and the source-file headers.
 
 ## File map
 
-The table highlights **port-specific additions and adapted Unitree Guide files**, rather than listing every unchanged upstream source file. Paths are relative to the repository root.
+The table highlights **port-specific additions and adapted Unitree Guide files**. Paths are relative to the repository root.
 
 | File(s) | Role in the ROS 2 port |
 | --- | --- |
@@ -25,21 +25,10 @@ The table highlights **port-specific additions and adapted Unitree Guide files**
 | `unitree_guide/src/quadProgpp/QuadProg++.cc` | Keep the original quadratic-programming solver usable with a modern C++ toolchain (including removal of obsolete `register` keywords). |
 
 ## Gait profiles
+### Walk
+The ** walk** staggers the four legs by a quarter-cycle. Three legs are nominally in stance while the fourth swings; at each phase boundary, one leg finishes its swing as another begins. The touchdown order is **FR → RL → FL → RR**.
 
-A **duty factor** is the fraction of one gait cycle that a foot spends on the ground (**stance**). The remaining fraction is **swing**, when the foot is lifted and repositioned. Phase offsets are fractions of a complete cycle, not seconds. Leg order in the profile vectors is **FR, FL, RR, RL**.
-
-| Parameter | Walk — four-beat crawl | Trot — diagonal pairs |
-| --- | --- | --- |
-| Period | **1.10 s** | **0.45 s** |
-| Duty factor | **0.75 (75%)** | **0.50 (50%)** |
-| Stance per leg | 0.825 s | 0.225 s |
-| Swing per leg | 0.275 s | 0.225 s |
-| Foot lift height | 0.05 m | 0.08 m |
-| Touchdown offsets `[FR, FL, RR, RL]` | `[0.00, 0.50, 0.75, 0.25]` | `[0.00, 0.50, 0.50, 0.00]` |
-
-### Walk timing
-
-The **crawl walk** staggers the four legs by a quarter-cycle. Three legs are nominally in stance while the fourth swings; at each phase boundary, one leg finishes its swing as another begins. The touchdown order is **FR → RL → FL → RR**.
+1.10 s period, 75% duty cycle (0.825 s stance, 0.275 s swing), 0.05 m foot lift, and touchdown offsets [0.00, 0.50, 0.75, 0.25] for [FR, FL, RR, RL].
 
 | Leg | Touchdown phase | Lift-off phase | Swing interval |
 | --- | ---: | ---: | --- |
@@ -48,18 +37,16 @@ The **crawl walk** staggers the four legs by a quarter-cycle. Three legs are nom
 | Front left (FL) | 0.50 | 0.25 | 0.25–0.50 |
 | Rear right (RR) | 0.75 | 0.50 | 0.50–0.75 |
 
-For walking, the profile also limits the backward speed command to **0.10 m/s** and longitudinal command changes to **0.30 m/s²**. These are command limits, not guarantees of achieved speed.
-
 ### Trot timing
 
 The **trot** alternates diagonal leg pairs: **FR + RL** move together, then **FL + RR**. Each pair spends half a cycle in stance and half in swing. With the current profile, each half-cycle lasts **0.225 s**.
+
+Trot: 0.45 s period, 50% duty cycle (0.225 s stance, 0.225 s swing), 0.08 m foot lift, and touchdown offsets [0.00, 0.50, 0.50, 0.00] for [FR, FL, RR, RL].
 
 | Leg pair | Touchdown phase | Swing interval |
 | --- | ---: | --- |
 | FR + RL | 0.00 | 0.50–1.00 |
 | FL + RR | 0.50 | 0.00–0.50 |
-
-Both profiles use the existing Unitree Guide gait generator and balance/force-control logic; this project changes the gait parameters and simulation interface rather than replacing the locomotion framework.
 
 ## Build and run
 
