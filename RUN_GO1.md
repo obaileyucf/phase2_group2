@@ -49,7 +49,7 @@ gz sim --version
 ```
 Clone Repo and Download Go1 Model
 ```bash
-git clone https://github.com/YOUR-ORG/YOUR-REPO.git "$HOME/go1_sim"
+git clone -b go1-framework https://github.com/obaileyucf/phase2_group2.git "$HOME/go1_sim"
 
 git clone --filter=blob:none --sparse \
   https://github.com/unitreerobotics/unitree_ros.git "$HOME/unitree_ros_models"
