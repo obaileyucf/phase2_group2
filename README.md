@@ -1,91 +1,95 @@
-# Unitree Guide for ROS 2 Jazzy
+# Go1 Simulation Framework — ROS 2 Jazzy
 
-This is a Go1 simulation port of [Unitree Robotics' Unitree Guide](https://github.com/unitreerobotics/unitree_guide/tree/fdf4d23de6affe8ee38fb4d892f61053fa1fcbcb). It uses Ubuntu 24.04, ROS 2 Jazzy, and Gazebo Harmonic. The controller is built as the `unitree_guide` library. The `go1_gazebo` package contains the simulation launcher, effort plugin, controller executable, and gait profiles. The BSD-3-Clause license applies to the Unitree Guide code.
+This project is a **ROS 2 port and adaptation of [Unitree Robotics' Unitree Guide](https://github.com/unitreerobotics/unitree_guide)** for simulating the **Unitree Go1** on **Ubuntu 24.04, ROS 2 Jazzy, and Gazebo Harmonic**.
 
-## Build
+The original Unitree Guide supplies the underlying locomotion architecture, including its finite-state machine, gait generation, state estimation, kinematics, and balance/force control. This port preserves that foundation while replacing ROS 1/Gazebo Classic integration with ROS 2 communication and Gazebo Harmonic simulation interfaces. The **walk and trot profiles** are selectable without maintaining two separate controllers.
 
-For setup from a fresh GitHub clone, see [RUN_GO1.md](RUN_GO1.md).
+This is an independently adapted simulation project, **not an official Unitree ROS 2 release** or a validated controller for a physical Go1. Credit for the original framework belongs to Unitree Robotics. The included Unitree code retains its **BSD-3-Clause** license; third-party components retain their own notices (including QuadProg++'s MIT notice). See [`LICENSE`](LICENSE) and the source-file headers.
 
-With ROS 2 Jazzy installed, run these commands from `go1_sim/`.
+## File map
+
+The table highlights **port-specific additions and adapted Unitree Guide files**, rather than listing every unchanged upstream source file. Paths are relative to the repository root.
+
+| File(s) | Role in the ROS 2 port |
+| --- | --- |
+| `unitree_guide/CMakeLists.txt`, `unitree_guide/package.xml` | Build and export the original locomotion algorithms as an `ament_cmake` library with ROS 2 dependencies. |
+| `go1_gazebo/CMakeLists.txt`, `go1_gazebo/package.xml` | Build the `junior_ctrl` executable and Gazebo joint-control plugin; register ROS 2 package dependencies. |
+| `go1_gazebo/src/main.cpp`, `unitree_guide/src/FSM/FSM.cpp` | Run the existing finite-state-machine/control loop using simulation time, with a nominal **2 ms (500 Hz)** controller period. |
+| `go1_gazebo/src/interface/IOROS.cpp` | Bridge ROS 2 `/joint_states` and `/trunk_imu` into Unitree's low-level state format; publish joint position, velocity, gain, and feedforward-torque targets. |
+| `unitree_guide/src/FSM/State_move_base.cpp`, `unitree_guide/src/control/Estimator.cpp` | Adapt velocity-command handling (`/cmd_vel`), state estimation, odometry, and TF publishing to ROS 2. |
+| `unitree_guide/src/FSM/State_Trotting.cpp` | Reuse Unitree Guide's locomotion state for the selected gait; apply swing/stance control, balance forces, and gait-specific command limits. |
+| `unitree_guide/src/Gait/WaveGenerator.cpp` | Compute each leg's contact state and stance/swing phase from the Gazebo simulation clock. |
+| `go1_gazebo/src/Gait/Walk.cpp`, `go1_gazebo/src/Gait/Trot.cpp` | Define the walk and trot periods, duty factors, leg-phase offsets, and swing heights. |
+| `go1_gazebo/src/Go1JointController.cpp` | Implement the ROS 2 `ros2_control` plugin: apply Unitree-style PD + feedforward torque commands against live joint states, with torque limits and a command timeout. |
+| `go1_gazebo/launch/gazeboSim.launch.py`, `go1_gazebo/config/` | Load the official Go1 model into Gazebo Harmonic, set up effort-control interfaces, spawn controllers, and bridge simulation clock and IMU messages. |
+| `unitree_guide/src/quadProgpp/QuadProg++.cc` | Keep the original quadratic-programming solver usable with a modern C++ toolchain (including removal of obsolete `register` keywords). |
+
+## Gait profiles
+
+A **duty factor** is the fraction of one gait cycle that a foot spends on the ground (**stance**). The remaining fraction is **swing**, when the foot is lifted and repositioned. Phase offsets are fractions of a complete cycle, not seconds. Leg order in the profile vectors is **FR, FL, RR, RL**.
+
+| Parameter | Walk — four-beat crawl | Trot — diagonal pairs |
+| --- | --- | --- |
+| Period | **1.10 s** | **0.45 s** |
+| Duty factor | **0.75 (75%)** | **0.50 (50%)** |
+| Stance per leg | 0.825 s | 0.225 s |
+| Swing per leg | 0.275 s | 0.225 s |
+| Foot lift height | 0.05 m | 0.08 m |
+| Touchdown offsets `[FR, FL, RR, RL]` | `[0.00, 0.50, 0.75, 0.25]` | `[0.00, 0.50, 0.50, 0.00]` |
+
+### Walk timing
+
+The **crawl walk** staggers the four legs by a quarter-cycle. Three legs are nominally in stance while the fourth swings; at each phase boundary, one leg finishes its swing as another begins. The touchdown order is **FR → RL → FL → RR**.
+
+| Leg | Touchdown phase | Lift-off phase | Swing interval |
+| --- | ---: | ---: | --- |
+| Front right (FR) | 0.00 | 0.75 | 0.75–1.00 |
+| Rear left (RL) | 0.25 | 0.00 | 0.00–0.25 |
+| Front left (FL) | 0.50 | 0.25 | 0.25–0.50 |
+| Rear right (RR) | 0.75 | 0.50 | 0.50–0.75 |
+
+For walking, the profile also limits the backward speed command to **0.10 m/s** and longitudinal command changes to **0.30 m/s²**. These are command limits, not guarantees of achieved speed.
+
+### Trot timing
+
+The **trot** alternates diagonal leg pairs: **FR + RL** move together, then **FL + RR**. Each pair spends half a cycle in stance and half in swing. With the current profile, each half-cycle lasts **0.225 s**.
+
+| Leg pair | Touchdown phase | Swing interval |
+| --- | ---: | --- |
+| FR + RL | 0.00 | 0.50–1.00 |
+| FL + RR | 0.50 | 0.00–0.50 |
+
+Both profiles use the existing Unitree Guide gait generator and balance/force-control logic; this project changes the gait parameters and simulation interface rather than replacing the locomotion framework.
+
+## Build and run
+
+For first-time installation and model setup, follow **[RUN_GO1.md](RUN_GO1.md)**. Once the environment and official Go1 description are installed, build from the repository root:
 
 ```bash
-sudo apt update
-sudo apt install ros-dev-tools libeigen3-dev ros-jazzy-ros-gz \
-  ros-jazzy-gz-ros2-control ros-jazzy-controller-interface ros-jazzy-realtime-tools \
-  ros-jazzy-joint-state-broadcaster ros-jazzy-robot-state-publisher \
-  ros-jazzy-tf2-ros
-
 source /opt/ros/jazzy/setup.bash
 colcon build --base-paths unitree_guide go1_gazebo --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
 
-The build command selects both ROS 2 packages in this directory.
-
-## Fetch the Go1 model
-
-The simulator uses the official Go1 URDF and meshes from [Unitree Robotics' unitree_ros](https://github.com/unitreerobotics/unitree_ros/tree/725b59b6de39a26c425632120c89f23c49a36f1e/robots/go1_description). A sparse checkout keeps the model separate from the ROS 2 controller.
+Launch Gazebo:
 
 ```bash
-git clone --filter=blob:none --sparse https://github.com/unitreerobotics/unitree_ros.git ~/unitree_ros_models
-git -C ~/unitree_ros_models switch --detach 725b59b6de39a26c425632120c89f23c49a36f1e
-git -C ~/unitree_ros_models sparse-checkout set robots/go1_description
-```
-
-## Run
-
-From `go1_sim/` in terminal 1, launch Gazebo and spawn the Go1.
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
 ros2 launch go1_gazebo gazeboSim.launch.py \
   go1_description:="$HOME/unitree_ros_models/robots/go1_description"
 ```
 
-Set **gui:=false** to run the same simulation without opening the Gazebo window. Wait for the joint state broadcaster and effort controller to activate.
-
-From `go1_sim/` in terminal 2, start the interactive controller.
+In a **second terminal**, source the workspace and choose a gait:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-ros2 run go1_gazebo junior_ctrl
-```
-
-In terminal 2, press **2** to stand. After the robot finishes standing, press **4**, then press **W** a few times to request forward movement. Each press increments the speed. **Space** centers the command, and **1** returns to passive mode. Press **5** from fixed stand to accept velocity commands on **/cmd_vel**. Restart both terminals after a Gazebo world reset.
-
-## File map
-
-| File | ROS 2 port |
-|---|---|
-| `unitree_guide/CMakeLists.txt` and `go1_gazebo/CMakeLists.txt` | Build the controller library, executable, and plugin with ament. Each package declares its dependencies in `package.xml`. |
-| `go1_gazebo/src/main.cpp` and `unitree_guide/src/FSM/FSM.cpp` | Schedule the existing control loop on the simulation clock. |
-| `go1_gazebo/src/interface/IOROS.cpp` | Read joint states and IMU and send Unitree's joint position, velocity, gains, and torque targets. |
-| `unitree_guide/src/FSM/State_move_base.cpp` and `unitree_guide/src/control/Estimator.cpp` | Receive velocity commands and publish odometry and TF through ROS 2. |
-| `unitree_guide/src/Gait/WaveGenerator.cpp` | Use simulation time for the existing contact and phase calculation. |
-| `go1_gazebo/src/Go1JointController.cpp` | Apply the original Unitree servo law to the current simulated position and velocity on each physics step. |
-| `go1_gazebo/launch/gazeboSim.launch.py` and `go1_gazebo/config/` | Start Gazebo Harmonic, configure the official Go1 model for effort control, and bridge the clock and IMU. |
-
-## Four-beat crawl
-
-Select the gait when starting the controller. Running `junior_ctrl` without a gait argument selects Unitree's stock trot.
-
-```bash
 ros2 run go1_gazebo junior_ctrl --ros-args -p gait:=walk
+# Or: -p gait:=trot
 ```
 
-Press **2** to stand and wait for the pose to settle. Press **4** to enter walking mode, then tap **W** for forward motion or **S** for backward motion. **Space** centers the command. The walk profile caps the backward speed command at 0.10 m/s and limits forward and backward command changes to 0.30 m/s². To select a gait again, restart the controller with the desired gait argument.
+Press **2** to stand, **4** to enter locomotion, **W/S** to change forward/backward speed, and **Space** to stop the motion command. The default gait, if no parameter is supplied, is **trot**.
 
-The nominal schedule uses a 1.10 s period, 0.825 s of stance per leg, and 0.275 s of swing per leg. Touchdown is measured from the start of a stride.
+## Upstream references
 
-| Leg | Touchdown phase | Lift-off phase | Swing interval |
-|---|---:|---:|---:|
-| Front right | 0.00 | 0.75 | 0.75–1.00 |
-| Rear left | 0.25 | 0.00 | 0.00–0.25 |
-| Front left | 0.50 | 0.25 | 0.25–0.50 |
-| Rear right | 0.75 | 0.50 | 0.50–0.75 |
-
-Unitree's cycloidal swing trajectory lifts the foot by 5 cm and uses Cartesian position and velocity feedback to track the target. During stance the controller anchors the foot target in the world frame and allocates ground reaction forces with the existing balance solver. At a nominal handoff one foot touches down as another lifts, so three legs are scheduled in stance. The force solver updates the active contacts at that handoff and penalizes changes from its previous force solution.
-
-The contact schedule follows the 75% wave crawl in the [Springer Handbook of Robotics, Fig. 16.26](https://users.dimi.uniud.it/~antonio.dangelo/Robotica/2019/helper/Handbook-leggedRobot.pdf). `go1_gazebo/src/Gait/Walk.cpp` contains the crawl settings.
+- [Unitree Robotics — Unitree Guide](https://github.com/unitreerobotics/unitree_guide): original controller and algorithms.
+- [Unitree Robotics — unitree_ros](https://github.com/unitreerobotics/unitree_ros): official Go1 robot description and meshes, obtained separately for simulation.
