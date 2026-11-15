@@ -12,9 +12,10 @@ from launch.actions import (
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from launch_ros.substitutions import FindPackageShare
 
 
 def go1_description(model_directory, controllers):
@@ -32,7 +33,7 @@ def go1_description(model_directory, controllers):
             mesh_file = model_directory / filename.removeprefix("package://go1_description/")
             if not mesh_file.is_file():
                 raise FileNotFoundError(mesh_file)
-            mesh.set("filename", str(mesh_file))
+            mesh.set("filename", mesh_file.as_uri())
 
     hardware = ET.SubElement(robot, "ros2_control", name="Go1System", type="system")
     ET.SubElement(ET.SubElement(hardware, "hardware"), "plugin").text = (
@@ -103,6 +104,8 @@ def launch_go1(context):
     config = Path(get_package_share_directory("go1_gazebo")) / "config"
     simulation = Path(get_package_share_directory("ros_gz_sim")) / "launch" / "gz_sim.launch.py"
     description = go1_description(model_directory, config / "go1_controllers.yaml")
+    pkg_share = FindPackageShare('go1_description')
+    rviz_config = PathJoinSubstitution([pkg_share, 'launch', 'check_joint.rviz'])
 
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(str(simulation)),
@@ -112,10 +115,13 @@ def launch_go1(context):
         }.items(),
     )
     robot_state = Node(
-        package="robot_state_publisher", executable="robot_state_publisher",
+        package="robot_state_publisher", 
+        executable="robot_state_publisher",
+        name='robot_state_publisher',
         parameters=[{
             "use_sim_time": True,
             "robot_description": ParameterValue(description, value_type=str),
+            "publish_frequency": 50.0, 
         }],
     )
     bridge = Node(
@@ -137,6 +143,14 @@ def launch_go1(context):
         ],
     )
 
+    rviz_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2",
+        output="screen",
+    arguments=["-d", PathJoinSubstitution([pkg_share, 'launch', 'check_joint.rviz'])],
+    )
+
     def start_controllers(event, _context):
         if event.returncode != 0:
             return [EmitEvent(event=Shutdown(reason="Go1 spawn failed"))]
@@ -146,6 +160,7 @@ def launch_go1(context):
         gazebo, robot_state, bridge,
         RegisterEventHandler(OnProcessExit(target_action=spawn, on_exit=start_controllers)),
         spawn,
+        rviz_node,  
     ]
 
 

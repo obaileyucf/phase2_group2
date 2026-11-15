@@ -26,7 +26,8 @@ private:
     float _yaw, _dYaw, _nextYaw;
 
     float _Tstance, _Tswing;
-    float _kx, _ky, _kyaw;
+    // float _kx, _ky, _kyaw;
+    float gain;
 };
 
 #endif  // FEETENDCAL_H

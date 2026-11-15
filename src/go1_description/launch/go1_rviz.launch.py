@@ -15,9 +15,6 @@ def generate_launch_description():
     pkg_share = FindPackageShare('go1_description')
     user_debug = LaunchConfiguration('user_debug')
 
-    # `--inorder` is gone in ROS2 xacro (it is the default behaviour).
-    # ParameterValue(..., value_type=str) stops the URDF string from being
-    # parsed as YAML when it is passed as a parameter.
     robot_description = ParameterValue(
         Command([
             FindExecutable(name='xacro'), ' ',
@@ -39,11 +36,10 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'robot_description': robot_description,
-                'publish_frequency': 50.0,  # 1000 Hz was overkill; raise if needed
+                'publish_frequency': 50.0,  
             }],
         ),
 
-        # use_gui param no longer exists; the GUI is its own package/executable.
         Node(
             package='joint_state_publisher_gui',
             executable='joint_state_publisher_gui',
