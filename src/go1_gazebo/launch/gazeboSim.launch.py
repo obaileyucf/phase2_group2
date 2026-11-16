@@ -106,7 +106,7 @@ def launch_go1(context):
     description = go1_description(model_directory, config / "go1_controllers.yaml")
     pkg_share = FindPackageShare('go1_description')
     rviz_config = PathJoinSubstitution([pkg_share, 'launch', 'check_joint.rviz'])
-
+    
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(str(simulation)),
         launch_arguments={
@@ -120,7 +120,7 @@ def launch_go1(context):
         name='robot_state_publisher',
         parameters=[{
             "use_sim_time": True,
-            "robot_description": ParameterValue(description, value_type=str),
+            "robot_description": description,
             "publish_frequency": 50.0, 
         }],
     )
